@@ -11,18 +11,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -U discord.py
+      - run: pip install -U discord.py
 
-      - name: Run bot
+      - name: Run Bot
         env:
           TOKEN: ${{ secrets.TOKEN }}
         run: python bot.py
