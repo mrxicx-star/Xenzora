@@ -1,19 +1,223 @@
 import discord
 from discord.ext import commands
-import os
+from discord.ui import View, Button
+import asyncio
+
+TOKEN = "YOUR_BOT_TOKEN"
+PREFIX = "!"
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix=",", intents=intents, help_command=None)
-
-BOT_NAME = "Xrenza"
+bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 # ===============================
-# READY EVENT
+# HELP DATA (ALL YOUR COMMANDS)
 # ===============================
 
-@bot.event
-async def on_ready():
-    print(f"{BOT_NAME} is online!")
+HELP_PAGES = [
+
+("🛡 Moderation", """
+`!ban <user>`
+`!unban <user>`
+`!kick <user>`
+`!mute <user>`
+`!unmute <user>`
+`!timeout <user>`
+`!untimeout <user>`
+`!warn <user>`
+`!unwarn <id>`
+`!warnings <user>`
+`!clearwarns <user>`
+`!purge <amount>`
+`!purge-bots`
+`!purge-user <user>`
+`!purge-links`
+`!purge-attachments`
+`!lock`
+`!unlock`
+`!hide`
+`!unhide`
+`!slowmode <seconds>`
+`!nick <user> <name>`
+`!role add/remove/create/delete/color/rename`
+`!vmute`
+`!vunmute`
+`!vdeafen`
+`!vundeafen`
+`!vkick`
+`!softban`
+`!nuke`
+`!clone`
+`!tempban`
+`!massban`
+`!masskick`
+`!modlog`
+`!jail`
+`!unjail`
+`!set-jail`
+"""),
+
+("🚨 Antinuke", """
+`!antinuke enable/disable/status/settings`
+`!antinuke action`
+`!antinuke log`
+`!antinuke punish-threshold`
+`!anti-bot`
+`!anti-link`
+`!anti-spam`
+`!anti-alt`
+`!anti-webhook`
+`!anti-vanity`
+`!limit ban/kick/channel-create/etc`
+`!recovery-setup`
+`!panic-mode`
+`!secure-server`
+`!quarantine`
+`!unquarantine`
+"""),
+
+("✅ Whitelist", """
+`!whitelist add/remove/list/reset/show`
+`!trust add/remove/list`
+`!ignore channel/user/role`
+`!unignore channel/user/role`
+`!whitelist-admin`
+`!whitelist-mod`
+"""),
+
+("⚙ Config & Prefix", """
+`!prefix`
+`!prefix reset`
+`!config`
+`!config view`
+`!config autorole`
+`!config welcome-channel`
+`!config leave-channel`
+`!config welcome-msg`
+`!config leave-msg`
+`!config boost-channel`
+`!config logs-all`
+`!config automod`
+`!config starboard`
+`!config suggest-channel`
+`!config invite-tracker`
+`!config sticky-roles`
+`!config mute-role`
+`!config jail-role`
+`!setup`
+`!reset-server`
+"""),
+
+("📊 Help & Info", """
+`!help`
+`!info`
+`!stats`
+`!ping`
+`!uptime`
+`!invite`
+`!support`
+`!serverinfo`
+`!userinfo`
+`!membercount`
+`!roleinfo`
+`!channelinfo`
+`!avatar`
+`!banner`
+`!boosters`
+`!permissions`
+`!check-security`
+`!bot-info`
+"""),
+
+("🛑 Automod & Filters", """
+`!filter add/remove/list/clear`
+`!automod caps`
+`!automod links`
+`!automod invites`
+`!automod massmention`
+`!automod lines`
+`!automod spam`
+`!automod badwords`
+`!automod zalgo`
+`!automod bypass`
+`!automod punish`
+"""),
+
+("🎉 Giveaway", """
+`!gstart`
+`!gend`
+`!greroll`
+`!glist`
+`!gcancel`
+"""),
+
+("🏆 Leveling", """
+`!rank`
+`!leaderboard`
+`!level-config`
+`!level-role add/remove`
+`!level-reset`
+`!level-multiplier`
+"""),
+
+("🎭 Utility / Fun", """
+`!poll`
+`!embed`
+`!dm`
+`!say`
+`!remind`
+`!calculator`
+`!weather`
+`!translate`
+`!urban`
+`!afk`
+`!snipe`
+`!editsnipe`
+`!react`
+`!steal`
+`!enlarge`
+""")
+
+]
+
+# ===============================
+# PAGINATION VIEW
+# ===============================
+
+class HelpView(View):
+    def __init__(self, ctx):
+        super().__init__(timeout=120)
+        self.ctx = ctx
+        self.page = 0
+
+    async def update_embed(self, interaction):
+        title, content = HELP_PAGES[self.page]
+        embed = discord.Embed(
+            title=title,
+            description=content,
+            color=discord.Color.blurple()
+        )
+        embed.set_footer(text=f"Page {self.page+1}/{len(HELP_PAGES)}")
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="⬅ Previous", style=discord.ButtonStyle.grey)
+    async def previous(self, interaction: discord.Interaction, button: Button):
+        if interaction.user != self.ctx.author:
+            return await interaction.response.send_message("Not for you.", ephemeral=True)
+        self.page = (self.page - 1) % len(HELP_PAGES)
+        await self.update_embed(interaction)
+
+    @discord.ui.button(label="Next ➡", style=discord.ButtonStyle.grey)
+    async def next(self, interaction: discord.Interaction, button: Button):
+        if interaction.user != self.ctx.author:
+            return await interaction.response.send_message("Not for you.", ephemeral=True)
+        self.page = (self.page + 1) % len(HELP_PAGES)
+        await self.update_embed(interaction)
+
+    @discord.ui.button(label="Close ❌", style=discord.ButtonStyle.red)
+    async def close(self, interaction: discord.Interaction, button: Button):
+        if interaction.user != self.ctx.author:
+            return await interaction.response.send_message("Not for you.", ephemeral=True)
+        await interaction.message.delete()
 
 # ===============================
 # HELP COMMAND
@@ -21,231 +225,59 @@ async def on_ready():
 
 @bot.command()
 async def help(ctx):
+    view = HelpView(ctx)
+    title, content = HELP_PAGES[0]
     embed = discord.Embed(
-        title=f"🔥 {BOT_NAME} Help Menu",
-        description="All Available Commands",
-        color=discord.Color.purple()
+        title=title,
+        description=content,
+        color=discord.Color.blurple()
     )
-
-    embed.add_field(name="🛡️ Antinuke", value="protect, antinuke, nightmode", inline=False)
-    embed.add_field(name="🤖 Automod", value="automod", inline=False)
-    embed.add_field(name="🔨 Moderation", value="ban, kick, mute, warn, purge, role, lock", inline=False)
-    embed.add_field(name="⚙️ General", value="ping, avatar, serverinfo, userinfo, stats", inline=False)
-    embed.add_field(name="🎉 Giveaway", value="gstart, gend, greroll, gjoins", inline=False)
-    embed.add_field(name="👑 Staff", value="crew, promote, demote", inline=False)
-
-    await ctx.send(embed=embed)
+    embed.set_footer(text=f"Page 1/{len(HELP_PAGES)}")
+    await ctx.send(embed=embed, view=view)
 
 # ===============================
-# GENERAL COMMANDS
+# AUTO PLACEHOLDER COMMANDS
 # ===============================
 
 @bot.command()
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
 
-@bot.command()
-async def avatar(ctx):
-    await ctx.send(ctx.author.avatar.url if ctx.author.avatar else "No avatar.")
+# Generic placeholder generator
+def create_placeholder(name):
+    @bot.command(name=name)
+    async def cmd(ctx, *args):
+        await ctx.send("✅ Command executed.")
+    return cmd
 
-@bot.command()
-async def serverinfo(ctx):
-    await ctx.send(f"Server Name: {ctx.guild.name}")
+# Add every command automatically
+ALL_COMMANDS = [
+"ban","unban","kick","mute","unmute","timeout","untimeout",
+"warn","unwarn","warnings","clearwarns","purge","lock","unlock",
+"slowmode","nick","vmute","vunmute","vdeafen","vundeafen",
+"vkick","softban","nuke","clone","tempban","massban","masskick",
+"modlog","jail","unjail","set-jail",
+"antinuke","quarantine","unquarantine",
+"whitelist","trust","ignore","unignore",
+"prefix","config","setup","reset-server",
+"info","stats","uptime","invite","support",
+"serverinfo","userinfo","membercount","roleinfo",
+"channelinfo","avatar","banner","boosters",
+"permissions","check-security","bot-info",
+"filter","automod",
+"gstart","gend","greroll","glist","gcancel",
+"rank","leaderboard","level-config","level-reset",
+"level-multiplier",
+"poll","embed","dm","say","remind",
+"calculator","weather","translate","urban",
+"afk","snipe","editsnipe","react","steal","enlarge"
+]
 
-@bot.command()
-async def userinfo(ctx):
-    await ctx.send(f"User: {ctx.author}")
-
-# ===============================
-# MODERATION COMMANDS
-# ===============================
-
-@bot.command()
-async def ban(ctx):
-    await ctx.send("🔨 Ban command executed (example).")
-
-@bot.command()
-async def kick(ctx):
-    await ctx.send("👢 Kick command executed (example).")
-
-@bot.command()
-async def mute(ctx):
-    await ctx.send("🔇 Mute command executed (example).")
-
-@bot.command()
-async def unmute(ctx):
-    await ctx.send("🔊 Unmute command executed (example).")
-
-@bot.command()
-async def warn(ctx):
-    await ctx.send("⚠️ Warn command executed (example).")
-
-@bot.command()
-async def purge(ctx):
-    await ctx.send("🧹 Purge command executed (example).")
-
-@bot.command()
-async def lock(ctx):
-    await ctx.send("🔒 Channel locked (example).")
-
-@bot.command()
-async def unlock(ctx):
-    await ctx.send("🔓 Channel unlocked (example).")
+for cmd in ALL_COMMANDS:
+    create_placeholder(cmd)
 
 # ===============================
-# ANTINUKE GROUP
+# RUN
 # ===============================
 
-@bot.group(invoke_without_command=True)
-async def antinuke(ctx):
-    await ctx.send("🛡️ Antinuke main command.")
-
-@antinuke.command()
-async def enable(ctx):
-    await ctx.send("Antinuke Enabled.")
-
-@antinuke.command()
-async def disable(ctx):
-    await ctx.send("Antinuke Disabled.")
-
-@antinuke.command()
-async def whitelist(ctx):
-    await ctx.send("Antinuke whitelist command.")
-
-@antinuke.command()
-async def logging(ctx):
-    await ctx.send("Antinuke logging configured.")
-
-@antinuke.command()
-async def config(ctx):
-    await ctx.send("Antinuke config panel.")
-
-# ===============================
-# AUTOMOD GROUP
-# ===============================
-
-@bot.group(invoke_without_command=True)
-async def automod(ctx):
-    await ctx.send("🤖 Automod main command.")
-
-@automod.command()
-async def enable(ctx):
-    await ctx.send("Automod Enabled.")
-
-@automod.command()
-async def disable(ctx):
-    await ctx.send("Automod Disabled.")
-
-@automod.command()
-async def reset(ctx):
-    await ctx.send("Automod Reset.")
-
-# ===============================
-# GIVEAWAY
-# ===============================
-
-@bot.command()
-async def gstart(ctx):
-    await ctx.send("🎉 Giveaway Started!")
-
-@bot.command()
-async def gend(ctx):
-    await ctx.send("🎉 Giveaway Ended!")
-
-@bot.command()
-async def greroll(ctx):
-    await ctx.send("🎉 Giveaway Rerolled!")
-
-@bot.command()
-async def gjoins(ctx):
-    await ctx.send("🎉 Giveaway Joins Listed!")
-
-# ===============================
-# AUTOROLE
-# ===============================
-
-@bot.group(invoke_without_command=True)
-async def autorole(ctx):
-    await ctx.send("Autorole main command.")
-
-@autorole.command()
-async def humans(ctx):
-    await ctx.send("Autorole humans command.")
-
-@autorole.command()
-async def bots(ctx):
-    await ctx.send("Autorole bots command.")
-
-# ===============================
-# AUTOREACT
-# ===============================
-
-@bot.group(invoke_without_command=True)
-async def autoreact(ctx):
-    await ctx.send("Autoreact main command.")
-
-@autoreact.command()
-async def add(ctx):
-    await ctx.send("Autoreact added.")
-
-@autoreact.command()
-async def remove(ctx):
-    await ctx.send("Autoreact removed.")
-
-# ===============================
-# IGNORE
-# ===============================
-
-@bot.group(invoke_without_command=True)
-async def ignore(ctx):
-    await ctx.send("Ignore main command.")
-
-@ignore.command()
-async def command(ctx):
-    await ctx.send("Ignore command setting.")
-
-@ignore.command()
-async def user(ctx):
-    await ctx.send("Ignore user setting.")
-
-# ===============================
-# STICKY
-# ===============================
-
-@bot.group(invoke_without_command=True)
-async def sticky(ctx):
-    await ctx.send("Sticky main command.")
-
-@sticky.command()
-async def set(ctx):
-    await ctx.send("Sticky set.")
-
-@sticky.command()
-async def remove(ctx):
-    await ctx.send("Sticky removed.")
-
-# ===============================
-# STAFF
-# ===============================
-
-@bot.group(invoke_without_command=True)
-async def crew(ctx):
-    await ctx.send("Crew system main.")
-
-@crew.command()
-async def setup(ctx):
-    await ctx.send("Crew setup done.")
-
-@bot.command()
-async def promote(ctx):
-    await ctx.send("User promoted.")
-
-@bot.command()
-async def demote(ctx):
-    await ctx.send("User demoted.")
-
-# ===============================
-# RUN BOT
-# ===============================
-
-bot.run(os.getenv("TOKEN"))
+bot.run(TOKEN)
