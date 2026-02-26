@@ -318,6 +318,7 @@ async def automod(ctx, state=None):
         update_config(ctx.guild.id, "automod_enabled", 0)
         await ctx.send("Automod Disabled")
 
+
 # ==================================================
 # READY
 # ==================================================
