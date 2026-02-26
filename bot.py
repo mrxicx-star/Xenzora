@@ -136,33 +136,31 @@ async def on_message(message):
 
     config = get_config(message.guild.id)
 
-    if not config[4]:
-        await bot.process_commands(message)
-        return
-
     now = time.time()
     spam_tracker.setdefault(message.author.id, []).append(now)
     spam_tracker[message.author.id] = [t for t in spam_tracker[message.author.id] if now - t < 7]
 
-    if len(spam_tracker[message.author.id]) > 5:
-        await message.delete()
-        return
-
-    if "discord.gg/" in message.content.lower():
-        await message.delete()
-        return
-
-    if "http://" in message.content.lower() or "https://" in message.content.lower():
-        await message.delete()
-        return
-
-    cursor.execute("SELECT word FROM filters WHERE guild_id=?", (message.guild.id,))
-    words = cursor.fetchall()
-    for (word,) in words:
-        if word in message.content.lower():
+    if config[4]:  # automod_enabled
+        if len(spam_tracker[message.author.id]) > 5:
             await message.delete()
             return
 
+        if "discord.gg/" in message.content.lower():
+            await message.delete()
+            return
+
+        if "http://" in message.content.lower() or "https://" in message.content.lower():
+            await message.delete()
+            return
+
+        cursor.execute("SELECT word FROM filters WHERE guild_id=?", (message.guild.id,))
+        words = cursor.fetchall()
+        for (word,) in words:
+            if word in message.content.lower():
+                await message.delete()
+                return
+
+    # Always process commands
     await bot.process_commands(message)
 
 # ==================================================
