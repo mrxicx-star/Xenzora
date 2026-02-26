@@ -192,12 +192,6 @@ async def check_antinuke(guild, member, action):
 # ===============================
 
 @bot.event
-async def on_guild_channel_create(channel):
-    guild = channel.guild
-    async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_create):
-        await check_antinuke(guild, entry.user, "channel_create")
-
-@bot.event
 async def on_guild_channel_delete(channel):
     guild = channel.guild
     async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_delete):
@@ -288,6 +282,293 @@ async def panic_mode(ctx, state=None):
     else:
         await ctx.send("Usage: !panic_mode enable/disable")
 
+# ===============================
+# AUTOMOD ENGINE
+# ===============================
+
+spam_tracker = {}
+spam_limit = 5
+spam_interval = 7
+
+def contains_invite(message):
+    return "discord.gg/" in message or "discord.com/invite" in message
+
+def contains_link(message):
+    return "http://" in message or "https://" in message or "www." in message
+
+def excessive_caps(message):
+    if len(message) < 6:
+        return False
+    upper = sum(1 for c in message if c.isupper())
+    return upper / len(message) > 0.7
+
+async def automod_punish(message, reason):
+    config = get_guild_config(message.guild.id)
+    action = config[8]  # reuse antinuke_action slot for now
+
+    try:
+        if action == "warn":
+            add_warning(message.guild.id, message.author.id, bot.user.id, reason)
+            await message.channel.send(f"⚠ {message.author.mention} warned: {reason}")
+        elif action == "mute":
+            mute_role_id = config[4]
+            if mute_role_id:
+                role = message.guild.get_role(mute_role_id)
+                await message.author.add_roles(role)
+        elif action == "kick":
+            await message.guild.kick(message.author, reason=reason)
+    except:
+        pass
+
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    config = get_guild_config(message.guild.id)
+
+    if not config[9]:  # automod_enabled
+        await bot.process_commands(message)
+        return
+
+    if is_whitelisted(message.guild.id, message.author.id):
+        await bot.process_commands(message)
+        return
+
+    # Spam Detection
+    now = asyncio.get_event_loop().time()
+    user_data = spam_tracker.setdefault(message.author.id, [])
+    user_data.append(now)
+    spam_tracker[message.author.id] = [t for t in user_data if now - t < spam_interval]
+
+    if len(spam_tracker[message.author.id]) > spam_limit:
+        await message.delete()
+        await automod_punish(message, "Spam detected")
+        return
+
+    # Invite Filter
+    if contains_invite(message.content):
+        await message.delete()
+        await automod_punish(message, "Invite link detected")
+        return
+
+    # Link Filter
+    if contains_link(message.content):
+        await message.delete()
+        await automod_punish(message, "External link detected")
+        return
+
+    # Caps Filter
+    if excessive_caps(message.content):
+        await message.delete()
+        await automod_punish(message, "Excessive caps")
+        return
+
+    # Word Filter
+    cursor.execute("SELECT word FROM filters WHERE guild_id=?", (message.guild.id,))
+    words = cursor.fetchall()
+    for (word,) in words:
+        if word.lower() in message.content.lower():
+            await message.delete()
+            await automod_punish(message, "Filtered word used")
+            return
+
+    await bot.process_commands(message)
+
+
+# ===============================
+# AUTOMOD COMMANDS
+# ===============================
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def automod(ctx, setting=None, value=None):
+    if setting == "enable":
+        update_config(ctx.guild.id, "automod_enabled", 1)
+        await ctx.send("🛑 Automod Enabled")
+    elif setting == "disable":
+        update_config(ctx.guild.id, "automod_enabled", 0)
+        await ctx.send("⚙ Automod Disabled")
+    else:
+        await ctx.send("Usage: !automod enable/disable")
+
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def filter(ctx, action=None, *, word=None):
+    if action == "add" and word:
+        cursor.execute("INSERT INTO filters (guild_id, word) VALUES (?,?)",
+                       (ctx.guild.id, word.lower()))
+        conn.commit()
+        await ctx.send(f"✅ Added filter word: {word}")
+    elif action == "remove" and word:
+        cursor.execute("DELETE FROM filters WHERE guild_id=? AND word=?",
+                       (ctx.guild.id, word.lower()))
+        conn.commit()
+        await ctx.send(f"❌ Removed filter word: {word}")
+    elif action == "list":
+        cursor.execute("SELECT word FROM filters WHERE guild_id=?", (ctx.guild.id,))
+        words = cursor.fetchall()
+        if not words:
+            return await ctx.send("No filter words set.")
+        await ctx.send("Filtered words:\n" + "\n".join(w[0] for w in words))
+    elif action == "clear":
+        cursor.execute("DELETE FROM filters WHERE guild_id=?", (ctx.guild.id,))
+        conn.commit()
+        await ctx.send("🗑 All filter words cleared.")
+    else:
+        await ctx.send("Usage: !filter add/remove/list/clear <word>")
+
+# ===============================
+# GIVEAWAY SYSTEM
+# ===============================
+
+import re
+
+def parse_time(time_str):
+    match = re.match(r"(\d+)([smhd])", time_str.lower())
+    if not match:
+        return None
+
+    value, unit = match.groups()
+    value = int(value)
+
+    if unit == "s":
+        return value
+    if unit == "m":
+        return value * 60
+    if unit == "h":
+        return value * 3600
+    if unit == "d":
+        return value * 86400
+
+    return None
+
+
+async def end_giveaway(message_id):
+    cursor.execute("SELECT * FROM giveaways WHERE message_id=?", (message_id,))
+    data = cursor.fetchone()
+
+    if not data:
+        return
+
+    _, guild_id, channel_id, end_time, winners_count, prize, ended = data
+
+    if ended:
+        return
+
+    guild = bot.get_guild(guild_id)
+    channel = guild.get_channel(channel_id)
+    message = await channel.fetch_message(message_id)
+
+    users = []
+    for reaction in message.reactions:
+        if str(reaction.emoji) == "🎉":
+            async for user in reaction.users():
+                if not user.bot:
+                    users.append(user)
+
+    if not users:
+        await channel.send("No valid participants.")
+    else:
+        winners = random.sample(users, min(winners_count, len(users)))
+        winner_mentions = ", ".join(w.mention for w in winners)
+        await channel.send(f"🎉 Congratulations {winner_mentions}! You won **{prize}**")
+
+    cursor.execute("UPDATE giveaways SET ended=1 WHERE message_id=?", (message_id,))
+    conn.commit()
+
+
+@tasks.loop(seconds=10)
+async def giveaway_checker():
+    current_time = int(time.time())
+
+    cursor.execute("SELECT message_id, end_time FROM giveaways WHERE ended=0")
+    data = cursor.fetchall()
+
+    for message_id, end_time in data:
+        if current_time >= end_time:
+            await end_giveaway(message_id)
+
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def gstart(ctx, time_str, winners: int, *, prize):
+    seconds = parse_time(time_str)
+    if not seconds:
+        return await ctx.send("Invalid time format. Use 10s / 10m / 1h / 1d")
+
+    end_time = int(time.time()) + seconds
+
+    embed = discord.Embed(
+        title="🎉 Giveaway",
+        description=f"Prize: **{prize}**\nWinners: {winners}\nEnds in: {time_str}",
+        color=discord.Color.purple()
+    )
+    embed.set_footer(text=f"Hosted by {ctx.author}")
+
+    message = await ctx.send(embed=embed)
+    await message.add_reaction("🎉")
+
+    cursor.execute(
+        "INSERT INTO giveaways VALUES (?,?,?,?,?,?,?)",
+        (message.id, ctx.guild.id, ctx.channel.id, end_time, winners, prize, 0)
+    )
+    conn.commit()
+
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def gend(ctx, message_id: int):
+    await end_giveaway(message_id)
+    await ctx.send("Giveaway ended.")
+
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def greroll(ctx, message_id: int):
+    cursor.execute("UPDATE giveaways SET ended=0 WHERE message_id=?", (message_id,))
+    conn.commit()
+    await end_giveaway(message_id)
+    await ctx.send("Giveaway rerolled.")
+
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def glist(ctx):
+    cursor.execute("SELECT message_id, prize, end_time FROM giveaways WHERE guild_id=? AND ended=0",
+                   (ctx.guild.id,))
+    data = cursor.fetchall()
+
+    if not data:
+        return await ctx.send("No active giveaways.")
+
+    desc = ""
+    for message_id, prize, end_time in data:
+        remaining = end_time - int(time.time())
+        desc += f"ID: {message_id} | {prize} | Ends in {remaining}s\n"
+
+    embed = discord.Embed(title="🎉 Active Giveaways", description=desc)
+    await ctx.send(embed=embed)
+
+
+@bot.command()
+@commands.has_permissions(manage_guild=True)
+async def gcancel(ctx, message_id: int):
+    cursor.execute("DELETE FROM giveaways WHERE message_id=?", (message_id,))
+    conn.commit()
+    await ctx.send("Giveaway cancelled.")
+
+
+# Start background loop
+from discord.ext import tasks
+import random
+
+@bot.event
+async def on_ready():
+    if not giveaway_checker.is_running():
+        giveaway_checker.start()
 
 # ===============================
 # HELP DATA (ALL YOUR COMMANDS)
