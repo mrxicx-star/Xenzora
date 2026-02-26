@@ -1,0 +1,11 @@
+{
+  "whitelist": [],
+  "log_channel": null,
+  "antinuke": {
+    "enabled": true,
+    "ban_limit": 3,
+    "channel_delete_limit": 3,
+    "role_delete_limit": 3
+  },
+  "jail_role": null
+}
