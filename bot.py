@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands
 from discord.ui import View, Button
@@ -10,47 +9,74 @@ PREFIX = "!"
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=PREFIX, intents=intents, help_command=None)
 
-# ===== COMMAND CATEGORIES =====
+# ===== COMMAND CATEGORIES WITH ALL COMMANDS =====
 COMMAND_CATEGORIES = {
-    "🛡 Security & Anti-Nuke": [
-        "/antinuke enable", "/antinuke disable", "/antinuke config",
-        "/nightmode enable", "/nightmode disable", "/nightmode auto", "/nightmode status",
-        "/admin add", "/admin remove", "/admin list", "/admin edit", "/admin reset",
-        "/extraowner add", "/extraowner remove", "/mainrole add", "/mainrole remove",
-        "/mainrole list", "/mainrole reset", "/modrole set", "/modrole view", "/modrole reset",
-        "/whitelist user add", "/unwhitelist user", "/whitelisted", "/whitelistreset"
+    "🛡 Security": [
+        "admin", "admin add", "admin remove", "admin edit", "admin list", "admin reset", "admin cleanup",
+        "antinuke", "antinuke enable", "antinuke disable", "antinuke config", "antinuke settings",
+        "extraowner", "extraowner add", "extraowner remove", "extraowner list", "extraowner reset",
+        "mainrole", "mainrole add", "mainrole remove", "mainrole list", "mainrole reset",
+        "modrole", "modrole set", "modrole view", "modrole reset",
+        "nightmode", "nightmode enable", "nightmode disable", "nightmode auto", "nightmode status",
+        "nightmode reset", "nightmode logs", "unwhitelist", "whitelist", "whitelisted", "whitelistreset"
     ],
     "🤖 Automod": [
-        "/automod antispam setup", "/automod antilink setup", "/automod antibadwords setup",
-        "/automod antizalgo setup", "/automod anticaps setup", "/automod whitelist manage",
-        "/automod config"
+        "automod", "automod antispam setup", "automod antilink setup", "automod antibadwords setup",
+        "automod antizalgo setup", "automod anticaps setup", "automod whitelist manage", "automod config"
     ],
     "⚖️ Moderation": [
-        "/ban <user> [reason]", "/kick <user> [reason]", "/mute <user> [duration]", 
-        "/unmute <user>", "/unmuteall", "/softban <user>", "/unban <user>", 
-        "/unbanall", "/warn <user> [reason]", "/warn list [user]", "/warn reset [user]",
-        "/warn remove <warning_id>", "/nick <user> <new_nickname>"
+        "ban", "kick", "softban", "unban", "unbanall", "mute", "unmute", "unmuteall", "warn", "warn reset",
+        "warn remove", "warn @member", "nick", "lock", "unlock", "lockall", "unlockall", "purge",
+        "purge @user/id", "purge bots", "purge humans", "purge links", "purge attachments", "purge mentions",
+        "purge emojis", "purge stickers", "purge contains"
     ],
-    "🧰 Channel & Role Management": [
-        "/role user add/remove", "/role all add/remove", "/role humans add/remove",
-        "/role bots add/remove", "/role cancel", "/role status", "/lock <channel>",
-        "/unlock <channel>", "/lockall", "/unlockall", "/hide <channel>", "/unhide <channel>",
-        "/hideall", "/unhideall", "/block <user> <channel>", "/unblock <user> <channel>",
-        "/slowmode <channel> <duration>"
+    "🧰 Role & Channel": [
+        "role", "role user", "role all", "role humans", "role bots", "role cancel", "role status",
+        "slowmode", "block", "unblock", "hide", "hideall", "unhide", "unhideall"
     ],
-    "📨 Message & Content Tools": [
-        "/purge [filters]", "/snipe channel [index]"
+    "📜 Logs & Config": [
+        "command", "command config", "command bypass role add", "command bypass role remove", "command bypass role list",
+        "command bypass role reset", "command bypass user add", "command bypass user remove", "command bypass user list",
+        "command bypass user reset", "command reset", "autologs", "channellog", "memberlog", "messagelog", "modlog",
+        "resetlog", "rolelog", "serverlog", "showlogs", "voicelog"
     ],
-    "📊 Server & Bot Info": [
-        "/membercount", "/serverinfo", "/userinfo <user>", "/stats", "/ping", "/uptime", "/boostcount"
+    "🎉 Giveaways & SelfRole": [
+        "giveaway", "giveaway start", "giveaway end", "giveaway list", "giveaway reroll",
+        "selfrole", "selfrole setup", "selfrole list", "selfrole delete", "selfrole reset", "selfrole cleanup", "selfrole edit"
     ],
-    "📜 Logs & Setup": [
-        "/autologs set channel", "/channellog set/reset", "/memberlog set/reset", "/messagelog set/reset",
-        "/modlog set/reset", "/rolelog set/reset", "/serverlog set/reset", "/voicelog set/reset",
-        "/showlogs", "/resetlog"
+    "🙋 Utility & Misc": [
+        "afk", "avatar", "banner", "banner user", "banner server", "setboost", "boostcount", "channelinfo",
+        "embed", "help", "invite", "membercount", "ping", "roleicon", "roleinfo", "servericon", "serverinfo",
+        "stats", "steal", "uptime", "userinfo", "vote", "infoboard", "infoboard create", "infoboard delete",
+        "infoboard list", "infoboard resend", "prefix", "list", "list joinpos", "list muted", "list noroles",
+        "list roles", "list admin", "list mod", "list bot", "list inrole", "list booster", "list bans",
+        "list emojis", "list channels", "list activedeveloper", "list earlysupporter"
     ],
-    "🙋‍♂️ Utility & Misc": [
-        "/help", "/prefix", "/invite", "/list", "/command config"
+    "🛠 Custom / Auto": [
+        "customrole", "customrole add", "customrole remove", "customrole reqrole add", "customrole reqrole remove",
+        "customrole reqrole reset", "customrole reqrole list", "customrole list", "customrole reset", "customrole config",
+        "autoresponder", "autoresponder add", "autoresponder remove", "autoresponder list", "autoresponder test", "autoresponder reset",
+        "autorole humans add", "autorole humans remove", "autorole humans list", "autorole humans reset",
+        "autorole bots add", "autorole bots remove", "autorole bots list", "autorole bots reset",
+        "welcome", "welcome setup", "welcome test", "welcome delete", "welcome list", "welcome keyword", "welcome reset", "welcome edit"
+    ],
+    "🎤 Voice & Ticket": [
+        "vcdeafen", "vcdeafenall", "vckick", "vckickall", "vcmoveall", "vcmute", "vcmuteall", "vcpull", "vcpush",
+        "vcrole", "vcrole humans add", "vcrole humans remove", "vcrole humans list", "vcrole humans reset",
+        "vcrole bots add", "vcrole bots remove", "vcrole bots list", "vcrole bots reset", "vcundeafen", "vcundeafenall",
+        "vcunmute", "vcunmuteall", "voicemaster", "voicemaster setup", "voicemaster list", "voicemaster reset",
+        "ticket", "ticket panel setup", "ticket panel list", "ticket panel reset"
+    ],
+    "📌 Fun & Media": [
+        "sticky", "sticky add", "sticky remove", "sticky list", "sticky reset",
+        "media", "media channel add", "media channel remove", "media channel list", "media channel reset",
+        "media whitelist role add", "media whitelist role remove", "media whitelist role list", "media whitelist role reset",
+        "media whitelist user add", "media whitelist user remove", "media whitelist user list", "media whitelist user reset",
+        "autonick", "autonick setup", "autonick config", "autonick reset",
+        "cute", "iq", "wouldyourather", "ad", "affect", "badstonk", "batslap", "beautiful", "bed", "blur",
+        "bobross", "caption", "clown", "confused", "dare", "dblack", "dblue", "deepfry", "delete", "doublestonk",
+        "facepalm", "gay", "greyscale", "heartbreaking", "hitler", "invert", "jail", "kiss", "lisa", "mms",
+        "reaction", "spank", "stonk", "tictactoe", "triggered", "truth"
     ]
 }
 
@@ -65,10 +91,10 @@ class HelpView(View):
     async def update_embed(self, interaction):
         category = self.categories[self.index]
         commands_list = COMMAND_CATEGORIES[category]
-        # Split commands if too long for Discord (optional, can paginate more if needed)
-        description = "\n".join(commands_list)
+        # join commands with backticks
+        description = " • ".join(f"`{cmd}`" for cmd in commands_list)
         embed = discord.Embed(
-            title=f"Xrenza Bot • {category}",
+            title=f"Xrenza • {category}",
             description=description,
             color=discord.Color.blurple()
         )
@@ -78,14 +104,14 @@ class HelpView(View):
     @discord.ui.button(label="⬅", style=discord.ButtonStyle.grey)
     async def back(self, interaction: discord.Interaction, button: Button):
         if interaction.user != self.ctx.author:
-            return await interaction.response.send_message("This isn't your help menu!", ephemeral=True)
+            return await interaction.response.send_message("This is not your menu!", ephemeral=True)
         self.index = (self.index - 1) % len(self.categories)
         await self.update_embed(interaction)
 
     @discord.ui.button(label="➡", style=discord.ButtonStyle.grey)
     async def forward(self, interaction: discord.Interaction, button: Button):
         if interaction.user != self.ctx.author:
-            return await interaction.response.send_message("This isn't your help menu!", ephemeral=True)
+            return await interaction.response.send_message("This is not your menu!", ephemeral=True)
         self.index = (self.index + 1) % len(self.categories)
         await self.update_embed(interaction)
 
@@ -94,9 +120,9 @@ class HelpView(View):
 async def help(ctx):
     view = HelpView(ctx)
     first_category = list(COMMAND_CATEGORIES.keys())[0]
-    description = "\n".join(COMMAND_CATEGORIES[first_category])
+    description = " • ".join(f"`{cmd}`" for cmd in COMMAND_CATEGORIES[first_category])
     embed = discord.Embed(
-        title=f"Xrenza Bot • {first_category}",
+        title=f"Xrenza • {first_category}",
         description=description,
         color=discord.Color.blurple()
     )
