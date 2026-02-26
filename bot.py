@@ -12,20 +12,17 @@ from collections import defaultdict
 # ===============================
 # TOKEN FROM SECRETS
 # ===============================
-
 TOKEN = os.getenv("TOKEN")  # Make sure secret name is TOKEN
-
 if not TOKEN:
     raise ValueError("TOKEN not found in environment variables!")
 
 PREFIX = "!"
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix=PREFIX, intents=intents)
+bot = commands.Bot(command_prefix=PREFIX, intents=intents, help_command=None)  # disable default help
 
 # ==================================================
 # DATABASE SETUP
 # ==================================================
-
 conn = sqlite3.connect("security.db")
 cursor = conn.cursor()
 
@@ -71,7 +68,6 @@ conn.commit()
 # ==================================================
 # CONFIG HELPERS
 # ==================================================
-
 def get_config(guild_id):
     cursor.execute("SELECT * FROM guild_config WHERE guild_id=?", (guild_id,))
     data = cursor.fetchone()
@@ -92,7 +88,6 @@ def is_whitelisted(guild_id, user_id):
 # ==================================================
 # ANTI-NUKE
 # ==================================================
-
 antinuke_tracker = defaultdict(lambda: defaultdict(int))
 time_window = 10
 
@@ -133,7 +128,6 @@ async def on_guild_channel_delete(channel):
 # ==================================================
 # AUTOMOD
 # ==================================================
-
 spam_tracker = {}
 
 @bot.event
@@ -142,40 +136,31 @@ async def on_message(message):
         return
 
     config = get_config(message.guild.id)
+    if config[4]:  # automod_enabled
+        now = time.time()
+        spam_tracker.setdefault(message.author.id, []).append(now)
+        spam_tracker[message.author.id] = [t for t in spam_tracker[message.author.id] if now - t < 7]
 
-    if not config[4]:
-        await bot.process_commands(message)
-        return
-
-    now = time.time()
-    spam_tracker.setdefault(message.author.id, []).append(now)
-    spam_tracker[message.author.id] = [t for t in spam_tracker[message.author.id] if now - t < 7]
-
-    if len(spam_tracker[message.author.id]) > 5:
-        await message.delete()
-        return
-
-    if "discord.gg/" in message.content.lower():
-        await message.delete()
-        return
-
-    if "http://" in message.content.lower() or "https://" in message.content.lower():
-        await message.delete()
-        return
-
-    cursor.execute("SELECT word FROM filters WHERE guild_id=?", (message.guild.id,))
-    words = cursor.fetchall()
-    for (word,) in words:
-        if word in message.content.lower():
+        if len(spam_tracker[message.author.id]) > 5:
             await message.delete()
             return
+
+        if "discord.gg/" in message.content.lower() or "http://" in message.content.lower() or "https://" in message.content.lower():
+            await message.delete()
+            return
+
+        cursor.execute("SELECT word FROM filters WHERE guild_id=?", (message.guild.id,))
+        words = cursor.fetchall()
+        for (word,) in words:
+            if word in message.content.lower():
+                await message.delete()
+                return
 
     await bot.process_commands(message)
 
 # ==================================================
 # GIVEAWAY SYSTEM
 # ==================================================
-
 def parse_time(time_str):
     match = re.match(r"(\d+)([smhd])", time_str.lower())
     if not match:
@@ -195,7 +180,11 @@ async def end_giveaway(message_id):
         return
 
     guild = bot.get_guild(guild_id)
+    if not guild:
+        return
     channel = guild.get_channel(channel_id)
+    if not channel:
+        return
     message = await channel.fetch_message(message_id)
 
     users = []
@@ -242,14 +231,13 @@ async def gstart(ctx, time_str, winners: int, *, prize):
     conn.commit()
 
 # ==================================================
-# HELP SYSTEM
+# CUSTOM HELP SYSTEM
 # ==================================================
-
 HELP_PAGES = [
-("🛡 Moderation", "`!ban` `!kick` `!purge`"),
-("🚨 AntiNuke", "`!antinuke enable` `!antinuke disable`"),
-("🛑 Automod", "`!automod enable` `!automod disable`"),
-("🎉 Giveaway", "`!gstart`"),
+    ("🛡 Moderation", "`!ban` `!kick` `!purge`"),
+    ("🚨 AntiNuke", "`!antinuke enable` `!antinuke disable`"),
+    ("🛑 Automod", "`!automod enable` `!automod disable`"),
+    ("🎉 Giveaway", "`!gstart`"),
 ]
 
 class HelpView(View):
@@ -297,7 +285,6 @@ async def help(ctx):
 # ==================================================
 # COMMANDS
 # ==================================================
-
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def antinuke(ctx, state=None):
@@ -318,11 +305,9 @@ async def automod(ctx, state=None):
         update_config(ctx.guild.id, "automod_enabled", 0)
         await ctx.send("Automod Disabled")
 
-
 # ==================================================
 # READY
 # ==================================================
-
 @bot.event
 async def on_ready():
     print(f"Xrenza Online as {bot.user}")
